@@ -14,6 +14,10 @@ Simple Python CLI to inspect z.ai code plan limits.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+
+# For GitBash use -
+# source .venv/Scripts/activate
+
 pip install -e .
 ```
 

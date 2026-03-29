@@ -40,35 +40,33 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def format_window_label(unit: int | None, number: int | None) -> str:
-    """Convert z.ai unit/number fields into a readable label."""
-    if unit == 1 and number is not None:
-        return f"{number}d"
-    if unit == 3 and number is not None:
-        return f"{number}h"
-    if unit == 5 and number is not None:
-        return f"{number}m"
-    return "Limit"
-
-
-def format_limit_name(limit_type: str | None, unit: int | None, number: int | None) -> str:
+def format_limit_name(limit_type: str | None, number: int | None) -> str:
     """Map z.ai limit types to user-facing names."""
     if limit_type == "TOKENS_LIMIT":
-        return f"Tokens ({format_window_label(unit, number)})"
+        return f"{number} Hours Quota"
     if limit_type == "TIME_LIMIT":
-        return "Monthly"
+        return "Total Monthly Web Search / Reader / Zread Quota"
     return limit_type or "Unknown"
 
 
-def format_reset_time(value: str | None) -> str:
-    """Convert an ISO timestamp into local time when possible."""
+def format_reset_time(value: str | int | None) -> str:
+    """Convert an ISO timestamp or Unix epoch into local time when possible."""
     if not value:
         return "-"
     try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
-    except ValueError:
-        return value
+        if isinstance(value, int):
+            dt = datetime.fromtimestamp(value / 1000, tz=datetime.now().astimezone().tzinfo)
+        else:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        local = dt.astimezone()
+        offset = local.utcoffset()
+        if offset is None:
+            return local.strftime("%Y-%m-%d %H:%M:%S")
+        offset_hours = int(offset.total_seconds() // 3600)
+        sign = "+" if offset_hours >= 0 else ""
+        return local.strftime(f"%Y-%m-%d %H:%M:%S GMT{sign}{offset_hours}")
+    except (ValueError, OSError, OverflowError):
+        return str(value)
 
 
 def fetch_limits(api_key: str) -> dict[str, Any]:
@@ -100,7 +98,7 @@ def parse_limits(data: dict[str, Any]) -> LimitsResult:
         used_percent = float(limit.get("percentage", 0))
         items.append(
             LimitItem(
-                name=format_limit_name(limit.get("type"), limit.get("unit"), limit.get("number")),
+                name=format_limit_name(limit.get("type"), limit.get("number")),
                 used_percent=used_percent,
                 remaining_percent=max(0.0, 100.0 - used_percent),
                 reset_at_raw=limit.get("nextResetTime"),
