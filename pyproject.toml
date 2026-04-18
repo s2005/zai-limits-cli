@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zai-limits-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "CLI to inspect z.ai code plan limits"
 readme = "README.md"
 requires-python = ">=3.10"

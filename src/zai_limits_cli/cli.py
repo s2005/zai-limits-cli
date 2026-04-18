@@ -7,14 +7,20 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
+from pathlib import Path
+import os
+
 import requests
 from dotenv import load_dotenv
+
+from zai_limits_cli import __version__
 from rich.console import Console
 from rich.table import Table
-import os
 
 API_URL = "https://api.z.ai/api/monitor/usage/quota/limit"
 TIMEOUT_SECONDS = 10
+DEFAULT_ENV_DIR = Path.home() / ".zai"
+DEFAULT_ENV_FILE = DEFAULT_ENV_DIR / ".env"
 console = Console()
 
 
@@ -37,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build command-line argument parser."""
     parser = argparse.ArgumentParser(description="Inspect z.ai code plan limits")
     parser.add_argument("--json", action="store_true", help="Print structured JSON output")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
 
@@ -131,12 +138,22 @@ def render_table(result: LimitsResult) -> None:
 
 def main() -> int:
     """CLI entry point."""
-    load_dotenv()
+    load_dotenv(DEFAULT_ENV_FILE)
     args = build_parser().parse_args()
 
-    api_key = os.getenv("ZAI_API_KEY")
+    api_key = os.environ.get("ZAI_API_KEY")
     if not api_key:
-        print("ERROR: ZAI_API_KEY is not set. Put it into .env file.", file=sys.stderr)
+        console.print("[bold red]ERROR:[/bold red] ZAI_API_KEY is not set.\n", highlight=False)
+        console.print(f"Expected config file at: [cyan]{DEFAULT_ENV_FILE}[/cyan]")
+        if not DEFAULT_ENV_FILE.exists():
+            console.print(
+                f"\nCreate [cyan]{DEFAULT_ENV_DIR}[/cyan] folder and add a [cyan].env[/cyan] file with:\n"
+                f"  [green]ZAI_API_KEY=your-api-key-here[/green]"
+            )
+        else:
+            console.print(
+                f"\nThe file [cyan]{DEFAULT_ENV_FILE}[/cyan] exists but does not contain [green]ZAI_API_KEY[/green]."
+            )
         return 1
 
     try:
